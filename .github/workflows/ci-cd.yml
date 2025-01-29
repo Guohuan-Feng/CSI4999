@@ -32,7 +32,7 @@ jobs:
 
       - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i ${{ secrets.EC2_SSH_KEY }} ubuntu@172.31.28.145 << EOF
+          ssh -o StrictHostKeyChecking=no -i ${{ secrets.EC2_SSH_KEY }} ubuntu@18.117.181.101 << EOF
           cd /var/www/html
           git pull origin main
           sudo systemctl restart nginx

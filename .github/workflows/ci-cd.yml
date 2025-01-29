@@ -32,7 +32,7 @@ jobs:
 
       - name: Create SSH Private Key File
         run: |
-          printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > /tmp/EC2_SSH_KEY.pem
+          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > /tmp/EC2_SSH_KEY.pem
           chmod 600 /tmp/EC2_SSH_KEY.pem
 
       - name: Debug SSH Key File (Optional)
@@ -42,12 +42,16 @@ jobs:
           wc -l /tmp/EC2_SSH_KEY.pem
 
       - name: Test SSH Connection
-        run: ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem ubuntu@18.117.181.101 "echo 'SSH Connection Successful'"
+        run: |
+          ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem ubuntu@18.117.181.101 "echo 'SSH Connection Successful'" || exit 1
 
       - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem ubuntu@18.117.181.101 << EOF
+          ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem ubuntu@18.117.181.101 << 'EOF'
+          set -e  # Stop execution if any command fails
           cd /var/www/html
+          git reset --hard HEAD  # Ensure a clean working directory
           git pull origin main
           sudo systemctl restart nginx
+          echo "Deployment successful!"
           EOF

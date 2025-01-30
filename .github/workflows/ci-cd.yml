@@ -43,13 +43,13 @@ jobs:
 
       - name: Test SSH Connection
         run: |
-          ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem ubuntu@18.117.181.101 "echo 'SSH Connection Successful'" || exit 1
+          ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 "echo 'SSH Connection Successful'" || exit 1
 
       - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem ubuntu@18.117.181.101 << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 << 'EOF'
           set -e  # Stop execution if any command fails
-          sudo chown -R ubuntu:ubuntu /var/www/html  # Ensure correct ownership
+          sudo chown -R admin:admin /var/www/html  # Ensure correct ownership
           sudo git config --global --add safe.directory /var/www/html  # Avoid ownership issues
           cd /var/www/html
           sudo git reset --hard HEAD  # Clean working directory

@@ -47,42 +47,36 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 "echo 'SSH Connection Successful'" || exit 1
 
-      # Deploy to EC2 & Ensure PostgreSQL and Node.js Are Installed
+      # Deploy to EC2 (Without SSM)
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 << 'EOF'
           set -e  # Stop execution if any command fails
 
-          # Install Required Dependencies
-          sudo apt update
+          # Remove SSM repo if it exists (Cleanup)
+          sudo rm -f /etc/apt/sources.list.d/amazon-ssm-agent.list
+
+          # Update and install required dependencies
+          sudo apt update || true
           sudo apt install -y nodejs npm postgresql postgresql-contrib nginx
 
           # Ensure PostgreSQL is running
           sudo systemctl start postgresql
           sudo systemctl enable postgresql
 
-          # Set up PostgreSQL User & Database (Only if needed)
+          # Set up PostgreSQL User & Database
           sudo -u postgres psql -c "CREATE USER myuser WITH PASSWORD 'mypassword';"
           sudo -u postgres psql -c "CREATE DATABASE mydatabase OWNER myuser;"
           sudo -u postgres psql -c "ALTER ROLE myuser SUPERUSER;"
 
-          # Ensure Correct File Ownership
+          # Ensure correct file ownership and deploy code
           sudo chown -R admin:admin /var/www/html
-          sudo git config --global --add safe.directory /var/www/html  # Avoid ownership issues
-
-          # Navigate to Project Directory
           cd /var/www/html
-
-          # Reset and Pull Latest Code
           sudo git reset --hard HEAD
           sudo git pull origin main
-
-          # Install Node.js Dependencies and Run Migrations (If applicable)
           npm install
-          npm run migrate  # Only if your database needs migrations
-
-          # Start Backend Server
-          npm run start  # Modify this if using PM2 or another process manager
+          npm run migrate  # If applicable
+          npm run start  # Modify if using PM2
 
           # Deploy Static HTML (If applicable)
           sudo cp -r /var/www/html/frontend/* /var/www/html/public/

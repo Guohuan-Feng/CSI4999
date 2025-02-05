@@ -47,7 +47,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 "echo 'SSH Connection Successful'" || exit 1
 
-      # Deploy to EC2 (Without SSM)
+      # Deploy to EC2
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 << 'EOF'
@@ -56,9 +56,16 @@ jobs:
           # Remove SSM repo if it exists (Cleanup)
           sudo rm -f /etc/apt/sources.list.d/amazon-ssm-agent.list
 
-          # Update and install required dependencies
+          # Update package lists
           sudo apt update || true
-          sudo apt install -y nodejs npm postgresql postgresql-contrib nginx
+
+          # Fix Node.js & npm installation
+          sudo apt remove -y nodejs npm || true
+          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+
+          # Install PostgreSQL & Nginx
+          sudo apt install -y postgresql postgresql-contrib nginx
 
           # Ensure PostgreSQL is running
           sudo systemctl start postgresql

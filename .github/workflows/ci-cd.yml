@@ -16,6 +16,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # Install AWS CLI
       - name: Install AWS CLI
         run: |
           sudo apt-get update
@@ -30,6 +31,7 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region us-east-2
 
+      # Set up SSH for EC2 Deployment
       - name: Create SSH Private Key File
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > /tmp/EC2_SSH_KEY.pem
@@ -45,15 +47,48 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 "echo 'SSH Connection Successful'" || exit 1
 
+      # Deploy to EC2 & Ensure PostgreSQL and Node.js Are Installed
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 << 'EOF'
           set -e  # Stop execution if any command fails
-          sudo chown -R admin:admin /var/www/html  # Ensure correct ownership
+
+          # Install Required Dependencies
+          sudo apt update
+          sudo apt install -y nodejs npm postgresql postgresql-contrib nginx
+
+          # Ensure PostgreSQL is running
+          sudo systemctl start postgresql
+          sudo systemctl enable postgresql
+
+          # Set up PostgreSQL User & Database (Only if needed)
+          sudo -u postgres psql -c "CREATE USER myuser WITH PASSWORD 'mypassword';"
+          sudo -u postgres psql -c "CREATE DATABASE mydatabase OWNER myuser;"
+          sudo -u postgres psql -c "ALTER ROLE myuser SUPERUSER;"
+
+          # Ensure Correct File Ownership
+          sudo chown -R admin:admin /var/www/html
           sudo git config --global --add safe.directory /var/www/html  # Avoid ownership issues
+
+          # Navigate to Project Directory
           cd /var/www/html
-          sudo git reset --hard HEAD  # Clean working directory
-          sudo git pull origin main  # Get latest code
-          sudo systemctl restart nginx  # Restart web server
+
+          # Reset and Pull Latest Code
+          sudo git reset --hard HEAD
+          sudo git pull origin main
+
+          # Install Node.js Dependencies and Run Migrations (If applicable)
+          npm install
+          npm run migrate  # Only if your database needs migrations
+
+          # Start Backend Server
+          npm run start  # Modify this if using PM2 or another process manager
+
+          # Deploy Static HTML (If applicable)
+          sudo cp -r /var/www/html/frontend/* /var/www/html/public/
+
+          # Restart NGINX
+          sudo systemctl restart nginx
+
           echo "Deployment successful!"
           EOF

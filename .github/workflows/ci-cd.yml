@@ -16,7 +16,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Install AWS CLI
       - name: Install AWS CLI
         run: |
           sudo apt-get update
@@ -31,7 +30,6 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region us-east-2
 
-      # Set up SSH for EC2 Deployment
       - name: Create SSH Private Key File
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > /tmp/EC2_SSH_KEY.pem
@@ -47,48 +45,27 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 "echo 'SSH Connection Successful'" || exit 1
 
-      # Deploy to EC2
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/EC2_SSH_KEY.pem admin@18.117.181.101 << 'EOF'
           set -e  # Stop execution if any command fails
-
-          # Remove SSM repo if it exists (Cleanup)
-          sudo rm -f /etc/apt/sources.list.d/amazon-ssm-agent.list
-
-          # Update package lists
-          sudo apt update || true
-
-          # Fix Node.js & npm installation
-          sudo apt remove -y nodejs npm || true
-          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-
-          # Install PostgreSQL & Nginx
-          sudo apt install -y postgresql postgresql-contrib nginx
-
-          # Ensure PostgreSQL is running
-          sudo systemctl start postgresql
-          sudo systemctl enable postgresql
-
-          # Set up PostgreSQL User & Database
-          sudo -u postgres psql -c "CREATE USER myuser WITH PASSWORD 'mypassword';"
-          sudo -u postgres psql -c "CREATE DATABASE mydatabase OWNER myuser;"
-          sudo -u postgres psql -c "ALTER ROLE myuser SUPERUSER;"
-
-          # Ensure correct file ownership and deploy code
+          
+          # Ensure correct permissions
           sudo chown -R admin:admin /var/www/html
+          sudo git config --global --add safe.directory /var/www/html
+          
+          # Pull latest changes
           cd /var/www/html
-          sudo git reset --hard HEAD
-          sudo git pull origin main
+          sudo git reset --hard HEAD  # Clean working directory
+          sudo git pull origin main  # Get latest code
+
+          # Install dependencies
           npm install
-          npm run migrate  # If applicable
-          npm run start  # Modify if using PM2
 
-          # Deploy Static HTML (If applicable)
-          sudo cp -r /var/www/html/frontend/* /var/www/html/public/
+          # Restart Node.js backend with PM2
+          pm2 restart openbridge
 
-          # Restart NGINX
+          # Restart NGINX for reverse proxy
           sudo systemctl restart nginx
 
           echo "Deployment successful!"
